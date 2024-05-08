@@ -78,4 +78,12 @@ impl EventHandler {
     pub async fn next(&mut self) -> Option<Event> {
         self.receiver.recv().await
     }
+
+    /// Stops the event handler before executing a command.
+    ///
+    /// It is crucial to call this method before executing a command to ensure proper handling
+    /// of events. This method aborts the ongoing event handling process.
+    pub fn stop(&self) {
+        self.handler.abort();
+    }
 }

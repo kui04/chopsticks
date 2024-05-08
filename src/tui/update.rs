@@ -149,12 +149,14 @@ impl<'a> App<'a> {
     }
 
     fn execute_cmd(&self) -> Result<()> {
-        restore_terminal()?;
         let index = self.state.selected().unwrap();
         if let Some(snippet) = self.snippets.get(index) {
             let cmd = snippet.cmd.as_str();
             let mut options = ScriptOptions::new();
             options.output_redirection = IoOptions::Inherit;
+
+            restore_terminal()?;
+            self.events.stop();
 
             let _exit_status: std::process::ExitStatus =
                 run_script::spawn_script!(cmd, &options)?.wait()?;
