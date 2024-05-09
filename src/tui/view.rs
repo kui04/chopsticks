@@ -1,18 +1,21 @@
 use super::model::App;
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
-    style::{Style, Stylize},
-    text::{Line, Text},
+    layout::{Alignment, Constraint, Layout, Rect},
+    style::{Color, Style, Stylize},
+    text::{Line, Span, Text},
     widgets::{Block, BorderType, HighlightSpacing, List, ListItem, Padding, Paragraph, Wrap},
     Frame,
 };
 
 impl<'a> App<'a> {
     pub fn view(&mut self, frame: &mut Frame) {
+        let chunks =
+            Layout::vertical([Constraint::Min(3), Constraint::Length(1)]).split(frame.size());
+
         if !self.editing {
             let chunks =
                 Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .split(frame.size());
+                    .split(chunks[0]);
 
             {
                 let chunks =
@@ -25,6 +28,8 @@ impl<'a> App<'a> {
         } else {
             self.view_editor(frame, frame.size());
         }
+
+        self.view_instructions(frame, chunks[1]);
     }
 
     fn view_search_bar(&mut self, frame: &mut Frame, rect: Rect) {
@@ -116,5 +121,28 @@ impl<'a> App<'a> {
 
         frame.render_widget(block, rect);
         frame.render_widget(editor.widget(), inner);
+    }
+
+    fn view_instructions(&mut self, frame: &mut Frame, rect: Rect) {
+        let inner = Block::new().inner(rect);
+        let instructions = Line::from(vec![
+            Span::from("<Enter> Execute").bold().bg(Color::Cyan),
+            Span::from(" | "),
+            Span::from("Ctrl").bold().bg(Color::Cyan),
+            Span::from(" + "),
+            Span::from("<a> Add").bg(Color::DarkGray),
+            Span::from(" "),
+            Span::from("<r> Remove").bg(Color::DarkGray),
+            Span::from(" "),
+            Span::from("<e> Edit").bg(Color::DarkGray),
+            Span::from(" "),
+            Span::from("<s> Save").bg(Color::DarkGray),
+            Span::from(" "),
+            Span::from("<c> quit or cancel").bg(Color::DarkGray),
+        ])
+        .fg(Color::White)
+        .alignment(Alignment::Left);
+
+        frame.render_widget(instructions, inner);
     }
 }
