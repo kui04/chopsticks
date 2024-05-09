@@ -21,7 +21,7 @@ impl ToString for Snippet {
             "priority = {}\ncmd = \'\'\'{}\'\'\'\ndescription = \'\'\'{}\'\'\'",
             self.priority,
             if self.cmd.is_empty() { "\n" } else { self.cmd.as_str() },
-            if self.description.is_empty() { "\n" } else { self.cmd.as_str() },
+            if self.description.is_empty() { "\n" } else { self.description.as_str() },
         )
     }
 }
