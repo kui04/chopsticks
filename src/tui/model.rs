@@ -29,6 +29,7 @@ impl ToString for Snippet {
 #[derive(Debug)]
 pub struct App<'a> {
     pub quit: bool,
+    pub terminal_restored: bool,
     pub(super) editing: bool,
     pub(super) search_bar: TextArea<'a>,
     pub(super) editor: Option<TextArea<'a>>,
@@ -47,6 +48,7 @@ impl<'a> App<'a> {
     pub fn new() -> App<'a> {
         Self {
             quit: false,
+            terminal_restored: false,
             editing: false,
             search_bar: TextArea::default(),
             editor: None,

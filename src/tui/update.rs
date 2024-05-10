@@ -83,13 +83,14 @@ impl<'a> App<'a> {
             })),
             (KeyCode::Char('e'), KeyModifiers::CONTROL)
             | (KeyCode::Char('E'), KeyModifiers::CONTROL) => {
-                if self.snippets.is_empty() {
-                    None
-                } else {
-                    let index = self.state.selected().unwrap();
-                    let snippet = self.snippets.remove(index);
-                    Some(Msg::Edit(EditMsg::Open { snippet }))
-                }
+                let index = self.state.selected().unwrap();
+                Some(Msg::Edit(EditMsg::Open {
+                    snippet: self
+                        .snippets
+                        .get(index)
+                        .unwrap_or(&Snippet::default())
+                        .clone(),
+                }))
             }
             (KeyCode::Char('r'), KeyModifiers::CONTROL)
             | (KeyCode::Char('R'), KeyModifiers::CONTROL) => Some(Msg::RemoveSnippet),
@@ -148,7 +149,7 @@ impl<'a> App<'a> {
         self.state.select(Some(i));
     }
 
-    fn execute_cmd(&self) -> Result<()> {
+    fn execute_cmd(&mut self) -> Result<()> {
         let index = self.state.selected().unwrap();
         if let Some(snippet) = self.snippets.get(index) {
             let cmd = snippet.cmd.as_str();
@@ -156,10 +157,16 @@ impl<'a> App<'a> {
             options.output_redirection = IoOptions::Inherit;
 
             restore_terminal()?;
+            self.terminal_restored = true;
             self.events.stop();
 
-            let _exit_status: std::process::ExitStatus =
+            let status: std::process::ExitStatus =
                 run_script::spawn_script!(cmd, &options)?.wait()?;
+
+            match status.code() {
+                Some(code) => println!("Exited with status code: {code}"),
+                None => println!("Process terminated by signal"),
+            }
         }
 
         Ok(())
@@ -193,7 +200,7 @@ impl<'a> App<'a> {
 
     fn remove_snippet(&mut self) {
         let index = self.state.selected().unwrap();
-        if !self.snippets.is_empty() {
+        if index < self.snippets.len() {
             self.snippets.remove(index);
         }
     }
