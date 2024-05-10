@@ -139,6 +139,8 @@ impl<'a> App<'a> {
             Span::from("<s> Save").bg(Color::DarkGray),
             Span::from(" "),
             Span::from("<c> quit or cancel").bg(Color::DarkGray),
+            Span::from(" "),
+            Span::from("<enter> copy").bg(Color::DarkGray),
         ])
         .fg(Color::White)
         .alignment(Alignment::Left);

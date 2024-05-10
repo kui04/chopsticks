@@ -1,4 +1,5 @@
 use anyhow::Result;
+use arboard::Clipboard;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use run_script::{types::ScriptOptions, IoOptions};
@@ -13,6 +14,7 @@ pub enum Msg {
     SelectNext,
     SelectPrev,
     ExecuteCmd,
+    CopyToClipboard,
     RemoveSnippet,
     Edit(EditMsg),
 }
@@ -47,6 +49,7 @@ impl<'a> App<'a> {
                 self.editing = false;
                 self.editor = None;
             }
+            Msg::CopyToClipboard => self.copy_to_clipboard(),
             Msg::AppClose => self.quit(),
         }
     }
@@ -76,6 +79,7 @@ impl<'a> App<'a> {
         match (evt.code, evt.modifiers) {
             (KeyCode::Up, _) => Some(Msg::SelectPrev),
             (KeyCode::Down, _) => Some(Msg::SelectNext),
+            (KeyCode::Enter, KeyModifiers::CONTROL) => Some(Msg::CopyToClipboard),
             (KeyCode::Enter, _) => Some(Msg::ExecuteCmd),
             (KeyCode::Char('a'), KeyModifiers::CONTROL)
             | (KeyCode::Char('A'), KeyModifiers::CONTROL) => Some(Msg::Edit(EditMsg::Open {
@@ -170,6 +174,15 @@ impl<'a> App<'a> {
         }
 
         Ok(())
+    }
+
+    fn copy_to_clipboard(&self) {
+        let mut clipboard = Clipboard::new().expect("Failed to construct new clipboard instance.");
+
+        let index = self.state.selected().unwrap();
+        if let Some(snippet) = self.snippets.get(index) {
+            clipboard.set_text(snippet.cmd.as_str()).unwrap();
+        }
     }
 
     fn search_snippet(&mut self) {
