@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, fs, path::PathBuf};
 
 use anyhow::Result;
 use ratatui::widgets::ListState;
@@ -14,10 +14,11 @@ pub struct Snippet {
     pub description: String,
 }
 
-impl ToString for Snippet {
+impl Display for Snippet {
     #[rustfmt::skip]
-    fn to_string(&self) -> String {
-        format!(
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "priority = {}\ncmd = \'\'\'{}\'\'\'\ndescription = \'\'\'{}\'\'\'",
             self.priority,
             if self.cmd.is_empty() { "\n" } else { self.cmd.as_str() },

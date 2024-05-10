@@ -199,7 +199,6 @@ impl<'a> App<'a> {
             let mut priority = 0i64;
             self.search_bar.lines()[0]
                 .split_ascii_whitespace()
-                .into_iter()
                 .for_each(|k| {
                     priority += matcher.fuzzy_match(&s.cmd, k).unwrap_or_default();
                     priority += matcher.fuzzy_match(&s.description, k).unwrap_or_default();
