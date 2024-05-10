@@ -1,4 +1,5 @@
 use anyhow::Result;
+use arboard::Clipboard;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use run_script::{types::ScriptOptions, IoOptions};
@@ -12,7 +13,9 @@ pub enum Msg {
     AppClose,
     SelectNext,
     SelectPrev,
+    SearchCmd,
     ExecuteCmd,
+    CopyToClipboard,
     RemoveSnippet,
     Edit(EditMsg),
 }
@@ -26,35 +29,39 @@ pub enum EditMsg {
 
 impl<'a> App<'a> {
     pub fn update(&mut self, msg: Msg) {
-        match msg {
+        if let Err(err) = match msg {
             Msg::SelectNext => self.select_next(),
             Msg::SelectPrev => self.select_previous(),
             Msg::RemoveSnippet => self.remove_snippet(),
-            Msg::ExecuteCmd => {
-                self.execute_cmd().unwrap();
-                self.quit()
-            }
+            Msg::SearchCmd => self.search_snippet(),
+            Msg::ExecuteCmd => self.execute_cmd().and_then(|_| self.quit()),
             Msg::Edit(EditMsg::Open { snippet }) => {
-                self.editing = true;
+                self.is_editing = true;
                 self.editor = Some(snippet.to_string().lines().collect());
+                Ok(())
             }
             Msg::Edit(EditMsg::Save) => {
-                self.save_snippet();
-                self.editing = false;
+                let result = self.save_snippet();
+                self.is_editing = false;
                 self.editor = None;
+                result
             }
             Msg::Edit(EditMsg::Cancel) => {
-                self.editing = false;
+                self.is_editing = false;
                 self.editor = None;
+                Ok(())
             }
+            Msg::CopyToClipboard => self.copy_to_clipboard(),
             Msg::AppClose => self.quit(),
+        } {
+            self.error_msg = Some(err.to_string());
         }
     }
 
     pub async fn handle_event(&mut self) -> Option<Msg> {
         match self.events.next().await? {
             Event::Key(key_evt) => {
-                if self.editing {
+                if self.is_editing {
                     self.handle_edit_event(key_evt)
                 } else {
                     match (key_evt.code, key_evt.modifiers) {
@@ -76,6 +83,7 @@ impl<'a> App<'a> {
         match (evt.code, evt.modifiers) {
             (KeyCode::Up, _) => Some(Msg::SelectPrev),
             (KeyCode::Down, _) => Some(Msg::SelectNext),
+            (KeyCode::Enter, KeyModifiers::CONTROL) => Some(Msg::CopyToClipboard),
             (KeyCode::Enter, _) => Some(Msg::ExecuteCmd),
             (KeyCode::Char('a'), KeyModifiers::CONTROL)
             | (KeyCode::Char('A'), KeyModifiers::CONTROL) => Some(Msg::Edit(EditMsg::Open {
@@ -83,21 +91,21 @@ impl<'a> App<'a> {
             })),
             (KeyCode::Char('e'), KeyModifiers::CONTROL)
             | (KeyCode::Char('E'), KeyModifiers::CONTROL) => {
-                if self.snippets.is_empty() {
-                    None
-                } else {
-                    let index = self.state.selected().unwrap();
-                    let snippet = self.snippets.remove(index);
-                    Some(Msg::Edit(EditMsg::Open { snippet }))
-                }
+                let index = self.state.selected().unwrap();
+                Some(Msg::Edit(EditMsg::Open {
+                    snippet: self
+                        .snippets
+                        .get(index)
+                        .unwrap_or(&Snippet::default())
+                        .clone(),
+                }))
             }
             (KeyCode::Char('r'), KeyModifiers::CONTROL)
             | (KeyCode::Char('R'), KeyModifiers::CONTROL) => Some(Msg::RemoveSnippet),
 
             _ => {
                 self.search_bar.input(evt);
-                self.search_snippet();
-                None
+                Some(Msg::SearchCmd)
             }
         }
     }
@@ -125,7 +133,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn select_next(&mut self) {
+    fn select_next(&mut self) -> Result<()> {
         // This won't panic because 'selected' is initialized to 0 from the beginning.
         let i = self.state.selected().unwrap();
         let i = if i >= self.snippets.len().saturating_sub(1) {
@@ -135,9 +143,10 @@ impl<'a> App<'a> {
         };
 
         self.state.select(Some(i));
+        Ok(())
     }
 
-    fn select_previous(&mut self) {
+    fn select_previous(&mut self) -> Result<()> {
         // This won't panic because 'selected' is initialized to 0 from the beginning.
         let i = self.state.selected().unwrap();
         let i = if i == 0 {
@@ -146,9 +155,10 @@ impl<'a> App<'a> {
             i - 1
         };
         self.state.select(Some(i));
+        Ok(())
     }
 
-    fn execute_cmd(&self) -> Result<()> {
+    fn execute_cmd(&mut self) -> Result<()> {
         let index = self.state.selected().unwrap();
         if let Some(snippet) = self.snippets.get(index) {
             let cmd = snippet.cmd.as_str();
@@ -156,23 +166,39 @@ impl<'a> App<'a> {
             options.output_redirection = IoOptions::Inherit;
 
             restore_terminal()?;
+            self.terminal_restored = true;
             self.events.stop();
 
-            let _exit_status: std::process::ExitStatus =
+            let status: std::process::ExitStatus =
                 run_script::spawn_script!(cmd, &options)?.wait()?;
+
+            match status.code() {
+                Some(code) => println!("Exited with status code: {code}"),
+                None => println!("Process terminated by signal"),
+            }
         }
 
         Ok(())
     }
 
-    fn search_snippet(&mut self) {
+    fn copy_to_clipboard(&self) -> Result<()> {
+        let mut clipboard = Clipboard::new()?;
+
+        let index = self.state.selected().unwrap();
+        if let Some(snippet) = self.snippets.get(index) {
+            clipboard.set_text(snippet.cmd.as_str())?;
+        }
+
+        Ok(())
+    }
+
+    fn search_snippet(&mut self) -> Result<()> {
         let matcher = SkimMatcherV2::default();
 
         self.snippets.iter_mut().for_each(|s| {
             let mut priority = 0i64;
             self.search_bar.lines()[0]
                 .split_ascii_whitespace()
-                .into_iter()
                 .for_each(|k| {
                     priority += matcher.fuzzy_match(&s.cmd, k).unwrap_or_default();
                     priority += matcher.fuzzy_match(&s.description, k).unwrap_or_default();
@@ -182,19 +208,23 @@ impl<'a> App<'a> {
 
         self.snippets.sort_by(|a, b| b.priority.cmp(&a.priority));
         self.state.select(Some(0));
+
+        Ok(())
     }
 
-    fn save_snippet(&mut self) {
-        // TODO: popup err msg
+    fn save_snippet(&mut self) -> Result<()> {
         let snippet = self.editor.as_ref().unwrap().lines().join("\n");
-        let snippet: Snippet = toml::from_str(&snippet).unwrap();
+        let snippet: Snippet = toml::from_str(&snippet)?;
         self.snippets.push(snippet);
+        Ok(())
     }
 
-    fn remove_snippet(&mut self) {
+    fn remove_snippet(&mut self) -> Result<()> {
         let index = self.state.selected().unwrap();
-        if !self.snippets.is_empty() {
+        if index < self.snippets.len() {
             self.snippets.remove(index);
         }
+
+        Ok(())
     }
 }

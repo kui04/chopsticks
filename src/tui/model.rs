@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, fs, path::PathBuf};
 
 use anyhow::Result;
 use ratatui::widgets::ListState;
@@ -14,10 +14,11 @@ pub struct Snippet {
     pub description: String,
 }
 
-impl ToString for Snippet {
+impl Display for Snippet {
     #[rustfmt::skip]
-    fn to_string(&self) -> String {
-        format!(
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "priority = {}\ncmd = \'\'\'{}\'\'\'\ndescription = \'\'\'{}\'\'\'",
             self.priority,
             if self.cmd.is_empty() { "\n" } else { self.cmd.as_str() },
@@ -29,7 +30,9 @@ impl ToString for Snippet {
 #[derive(Debug)]
 pub struct App<'a> {
     pub quit: bool,
-    pub(super) editing: bool,
+    pub terminal_restored: bool,
+    pub(super) is_editing: bool,
+    pub(super) error_msg: Option<String>,
     pub(super) search_bar: TextArea<'a>,
     pub(super) editor: Option<TextArea<'a>>,
     pub(super) snippets: Vec<Snippet>,
@@ -47,7 +50,9 @@ impl<'a> App<'a> {
     pub fn new() -> App<'a> {
         Self {
             quit: false,
-            editing: false,
+            terminal_restored: false,
+            is_editing: false,
+            error_msg: None,
             search_bar: TextArea::default(),
             editor: None,
             snippets: Vec::new(),
@@ -61,12 +66,13 @@ impl<'a> App<'a> {
         self.state.select(Some(0));
     }
 
-    pub fn quit(&mut self) {
+    pub fn quit(&mut self) -> Result<()> {
         let snippets =
             toml::to_string_pretty(&HashMap::from([("snippets", &self.snippets)])).unwrap();
         let snippet_path = Self::snippet_path();
         fs::write(snippet_path, snippets).unwrap();
         self.quit = true;
+        Ok(())
     }
 
     fn load_snippets(&mut self) -> Result<Vec<Snippet>> {

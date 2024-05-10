@@ -15,7 +15,9 @@ async fn main() -> Result<()> {
         }
     }
 
-    tui::restore_terminal()?;
+    if !app.terminal_restored {
+        tui::restore_terminal()?;
+    }
 
     Ok(())
 }
