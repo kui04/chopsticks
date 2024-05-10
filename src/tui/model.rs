@@ -30,7 +30,7 @@ impl ToString for Snippet {
 pub struct App<'a> {
     pub quit: bool,
     pub terminal_restored: bool,
-    pub(super) editing: bool,
+    pub(super) is_editing: bool,
     pub(super) search_bar: TextArea<'a>,
     pub(super) editor: Option<TextArea<'a>>,
     pub(super) snippets: Vec<Snippet>,
@@ -49,7 +49,7 @@ impl<'a> App<'a> {
         Self {
             quit: false,
             terminal_restored: false,
-            editing: false,
+            is_editing: false,
             search_bar: TextArea::default(),
             editor: None,
             snippets: Vec::new(),

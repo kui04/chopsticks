@@ -12,7 +12,9 @@ impl<'a> App<'a> {
         let chunks =
             Layout::vertical([Constraint::Min(3), Constraint::Length(1)]).split(frame.size());
 
-        if !self.editing {
+        if self.is_editing {
+            self.view_editor(frame, frame.size());
+        } else {
             let chunks =
                 Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                     .split(chunks[0]);
@@ -20,13 +22,11 @@ impl<'a> App<'a> {
             {
                 let chunks =
                     Layout::vertical([Constraint::Length(3), Constraint::Min(1)]).split(chunks[0]);
-
                 self.view_search_bar(frame, chunks[0]);
                 self.view_snippets_list(frame, chunks[1]);
             }
+
             self.view_snippet_details(frame, chunks[1]);
-        } else {
-            self.view_editor(frame, frame.size());
         }
 
         self.view_instructions(frame, chunks[1]);

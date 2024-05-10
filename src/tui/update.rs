@@ -37,16 +37,16 @@ impl<'a> App<'a> {
                 self.quit()
             }
             Msg::Edit(EditMsg::Open { snippet }) => {
-                self.editing = true;
+                self.is_editing = true;
                 self.editor = Some(snippet.to_string().lines().collect());
             }
             Msg::Edit(EditMsg::Save) => {
                 self.save_snippet();
-                self.editing = false;
+                self.is_editing = false;
                 self.editor = None;
             }
             Msg::Edit(EditMsg::Cancel) => {
-                self.editing = false;
+                self.is_editing = false;
                 self.editor = None;
             }
             Msg::CopyToClipboard => self.copy_to_clipboard(),
@@ -57,7 +57,7 @@ impl<'a> App<'a> {
     pub async fn handle_event(&mut self) -> Option<Msg> {
         match self.events.next().await? {
             Event::Key(key_evt) => {
-                if self.editing {
+                if self.is_editing {
                     self.handle_edit_event(key_evt)
                 } else {
                     match (key_evt.code, key_evt.modifiers) {
