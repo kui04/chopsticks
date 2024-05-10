@@ -31,6 +31,7 @@ pub struct App<'a> {
     pub quit: bool,
     pub terminal_restored: bool,
     pub(super) is_editing: bool,
+    pub(super) error_msg: Option<String>,
     pub(super) search_bar: TextArea<'a>,
     pub(super) editor: Option<TextArea<'a>>,
     pub(super) snippets: Vec<Snippet>,
@@ -50,6 +51,7 @@ impl<'a> App<'a> {
             quit: false,
             terminal_restored: false,
             is_editing: false,
+            error_msg: None,
             search_bar: TextArea::default(),
             editor: None,
             snippets: Vec::new(),
@@ -63,12 +65,13 @@ impl<'a> App<'a> {
         self.state.select(Some(0));
     }
 
-    pub fn quit(&mut self) {
+    pub fn quit(&mut self) -> Result<()> {
         let snippets =
             toml::to_string_pretty(&HashMap::from([("snippets", &self.snippets)])).unwrap();
         let snippet_path = Self::snippet_path();
         fs::write(snippet_path, snippets).unwrap();
         self.quit = true;
+        Ok(())
     }
 
     fn load_snippets(&mut self) -> Result<Vec<Snippet>> {

@@ -13,6 +13,7 @@ pub enum Msg {
     AppClose,
     SelectNext,
     SelectPrev,
+    SearchCmd,
     ExecuteCmd,
     CopyToClipboard,
     RemoveSnippet,
@@ -28,29 +29,32 @@ pub enum EditMsg {
 
 impl<'a> App<'a> {
     pub fn update(&mut self, msg: Msg) {
-        match msg {
+        if let Err(err) = match msg {
             Msg::SelectNext => self.select_next(),
             Msg::SelectPrev => self.select_previous(),
             Msg::RemoveSnippet => self.remove_snippet(),
-            Msg::ExecuteCmd => {
-                self.execute_cmd().unwrap();
-                self.quit()
-            }
+            Msg::SearchCmd => self.search_snippet(),
+            Msg::ExecuteCmd => self.execute_cmd().and_then(|_| self.quit()),
             Msg::Edit(EditMsg::Open { snippet }) => {
                 self.is_editing = true;
                 self.editor = Some(snippet.to_string().lines().collect());
+                Ok(())
             }
             Msg::Edit(EditMsg::Save) => {
-                self.save_snippet();
+                let result = self.save_snippet();
                 self.is_editing = false;
                 self.editor = None;
+                result
             }
             Msg::Edit(EditMsg::Cancel) => {
                 self.is_editing = false;
                 self.editor = None;
+                Ok(())
             }
             Msg::CopyToClipboard => self.copy_to_clipboard(),
             Msg::AppClose => self.quit(),
+        } {
+            self.error_msg = Some(err.to_string());
         }
     }
 
@@ -101,8 +105,7 @@ impl<'a> App<'a> {
 
             _ => {
                 self.search_bar.input(evt);
-                self.search_snippet();
-                None
+                Some(Msg::SearchCmd)
             }
         }
     }
@@ -130,7 +133,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn select_next(&mut self) {
+    fn select_next(&mut self) -> Result<()> {
         // This won't panic because 'selected' is initialized to 0 from the beginning.
         let i = self.state.selected().unwrap();
         let i = if i >= self.snippets.len().saturating_sub(1) {
@@ -140,9 +143,10 @@ impl<'a> App<'a> {
         };
 
         self.state.select(Some(i));
+        Ok(())
     }
 
-    fn select_previous(&mut self) {
+    fn select_previous(&mut self) -> Result<()> {
         // This won't panic because 'selected' is initialized to 0 from the beginning.
         let i = self.state.selected().unwrap();
         let i = if i == 0 {
@@ -151,6 +155,7 @@ impl<'a> App<'a> {
             i - 1
         };
         self.state.select(Some(i));
+        Ok(())
     }
 
     fn execute_cmd(&mut self) -> Result<()> {
@@ -176,16 +181,18 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn copy_to_clipboard(&self) {
-        let mut clipboard = Clipboard::new().expect("Failed to construct new clipboard instance.");
+    fn copy_to_clipboard(&self) -> Result<()> {
+        let mut clipboard = Clipboard::new()?;
 
         let index = self.state.selected().unwrap();
         if let Some(snippet) = self.snippets.get(index) {
-            clipboard.set_text(snippet.cmd.as_str()).unwrap();
+            clipboard.set_text(snippet.cmd.as_str())?;
         }
+
+        Ok(())
     }
 
-    fn search_snippet(&mut self) {
+    fn search_snippet(&mut self) -> Result<()> {
         let matcher = SkimMatcherV2::default();
 
         self.snippets.iter_mut().for_each(|s| {
@@ -202,19 +209,23 @@ impl<'a> App<'a> {
 
         self.snippets.sort_by(|a, b| b.priority.cmp(&a.priority));
         self.state.select(Some(0));
+
+        Ok(())
     }
 
-    fn save_snippet(&mut self) {
-        // TODO: popup err msg
+    fn save_snippet(&mut self) -> Result<()> {
         let snippet = self.editor.as_ref().unwrap().lines().join("\n");
-        let snippet: Snippet = toml::from_str(&snippet).unwrap();
+        let snippet: Snippet = toml::from_str(&snippet)?;
         self.snippets.push(snippet);
+        Ok(())
     }
 
-    fn remove_snippet(&mut self) {
+    fn remove_snippet(&mut self) -> Result<()> {
         let index = self.state.selected().unwrap();
         if index < self.snippets.len() {
             self.snippets.remove(index);
         }
+
+        Ok(())
     }
 }

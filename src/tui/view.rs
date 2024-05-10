@@ -1,7 +1,7 @@
 use super::model::App;
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Style, Stylize},
+    style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, HighlightSpacing, List, ListItem, Padding, Paragraph, Wrap},
     Frame,
@@ -29,7 +29,11 @@ impl<'a> App<'a> {
             self.view_snippet_details(frame, chunks[1]);
         }
 
-        self.view_instructions(frame, chunks[1]);
+        if self.error_msg.is_some() {
+            self.view_error_msg(frame, chunks[1]);
+        } else {
+            self.view_instructions(frame, chunks[1]);
+        }
     }
 
     fn view_search_bar(&mut self, frame: &mut Frame, rect: Rect) {
@@ -124,27 +128,35 @@ impl<'a> App<'a> {
     }
 
     fn view_instructions(&mut self, frame: &mut Frame, rect: Rect) {
-        let inner = Block::new().inner(rect);
+        let inner = Block::new().padding(Padding::horizontal(1)).inner(rect);
         let instructions = Line::from(vec![
-            Span::from("<Enter> Execute").bold().bg(Color::Cyan),
+            Span::from("<Enter> Execute").bold().on_cyan(),
             Span::from(" | "),
-            Span::from("Ctrl").bold().bg(Color::Cyan),
+            Span::from("Ctrl").bold().on_cyan(),
             Span::from(" + "),
-            Span::from("<a> Add").bg(Color::DarkGray),
+            Span::from("<a> Add").on_dark_gray(),
             Span::from(" "),
-            Span::from("<r> Remove").bg(Color::DarkGray),
+            Span::from("<r> Remove").on_dark_gray(),
             Span::from(" "),
-            Span::from("<e> Edit").bg(Color::DarkGray),
+            Span::from("<e> Edit").on_dark_gray(),
             Span::from(" "),
-            Span::from("<s> Save").bg(Color::DarkGray),
+            Span::from("<s> Save").on_dark_gray(),
             Span::from(" "),
-            Span::from("<c> quit or cancel").bg(Color::DarkGray),
+            Span::from("<c> quit or cancel").on_dark_gray(),
             Span::from(" "),
-            Span::from("<enter> copy").bg(Color::DarkGray),
+            Span::from("<enter> copy").on_dark_gray(),
         ])
-        .fg(Color::White)
+        .white()
         .alignment(Alignment::Left);
 
         frame.render_widget(instructions, inner);
+    }
+
+    fn view_error_msg(&self, frame: &mut Frame, rect: Rect) {
+        let inner = Block::new().padding(Padding::horizontal(1)).inner(rect);
+        let msg = self.error_msg.as_ref().unwrap();
+        let content = Line::from(msg.as_str()).red();
+
+        frame.render_widget(content, inner);
     }
 }
