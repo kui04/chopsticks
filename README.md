@@ -12,7 +12,7 @@ Chopsticks is a tool designed to help manage code snippets from the command line
 To install Chopsticks, you can use Cargo, Rust's package manager, by running the following command:
 
 ```sh
-cargo install --git https://github.com/cuckoio/chopsticks.git
+cargo install --git https://github.com/kui04/chopsticks.git
 ```
 
 ### Suggestion
