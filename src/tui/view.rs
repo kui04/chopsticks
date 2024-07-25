@@ -1,4 +1,5 @@
 use super::model::App;
+use crate::tui::model::TextAreaWidget;
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -42,11 +43,11 @@ impl<'a> App<'a> {
             .padding(Padding::horizontal(2));
         let inner = block.inner(rect);
 
-        let search_bar = &mut self.search_bar;
-        search_bar.set_placeholder_text("Type to search");
+        let search_bar = &self.search_bar;
+        let text_area_widget = TextAreaWidget::new(search_bar);
 
         frame.render_widget(block, rect);
-        frame.render_widget(search_bar.widget(), inner);
+        frame.render_widget(text_area_widget, inner);
     }
 
     fn view_snippets_list(&mut self, frame: &mut Frame, rect: Rect) {
@@ -122,9 +123,10 @@ impl<'a> App<'a> {
         editor.set_placeholder_text(
             "priority = 0\ncmd = \"echo hello world\"\ndescription = \"this is a example\"",
         );
-
+    
         frame.render_widget(block, rect);
-        frame.render_widget(editor.widget(), inner);
+        let text_area_widget = TextAreaWidget::new(editor);
+        frame.render_widget(text_area_widget, inner);
     }
 
     fn view_instructions(&mut self, frame: &mut Frame, rect: Rect) {

@@ -1,10 +1,12 @@
 use std::{collections::HashMap, fmt::Display, fs, path::PathBuf};
-
 use anyhow::Result;
-use ratatui::widgets::ListState;
+use ratatui::{
+    layout::Rect,
+    style::Style,
+    widgets::{ListState, Paragraph, Widget},
+};
 use serde::{Deserialize, Serialize};
 use tui_textarea::TextArea;
-
 use crate::event::EventHandler;
 #[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct Snippet {
@@ -45,6 +47,37 @@ impl<'a> Default for App<'a> {
         Self::new()
     }
 }
+
+#[derive(Debug)]
+pub struct TextAreaWidget<'a> {
+    text_area: &'a TextArea<'a>,
+}
+
+impl<'a> TextAreaWidget<'a> {
+    pub fn new(text_area: &'a TextArea<'a>) -> Self {
+        Self { text_area }
+    }
+}
+
+impl<'a> Widget for TextAreaWidget<'a> {
+    fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
+        let text = self.text_area.lines().join("\n");
+        let paragraph = Paragraph::new(text);
+        paragraph.render(area, buf);
+
+        let (x, y) = self.text_area.cursor();
+
+        // 修正光标的位置
+        let cursor_x = area.left() + y as u16;
+        let cursor_y = area.top() + x as u16;
+        
+        // 确保光标位置在渲染区域内
+        if cursor_x >= area.left() && cursor_x <= area.right() && cursor_y >= area.top() && cursor_y < area.bottom() {
+            buf.set_string(cursor_x, cursor_y, "|", Style::default());
+        }
+    }
+}
+
 
 impl<'a> App<'a> {
     pub fn new() -> App<'a> {
